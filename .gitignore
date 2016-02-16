@@ -4,5 +4,11 @@ deps
 *.beam
 *.plt
 erl_crash.dump
+
 grm.erl
 lex.erl
+
+ebin
+rel/example_project
+.concrete/DEV_MODE
+.rebar
