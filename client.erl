@@ -98,7 +98,7 @@ handle(St, {leave, Channel}) ->
             ServerAtom = list_to_atom(St#client_st.server),
             try genserver:request(ServerAtom, {leave, St#client_st.gui, Channel}) of
                 Response ->
-                    NewRooms = lists:remove(Channel, St#client_st.chatrooms),
+                    NewRooms = lists:delete(Channel, St#client_st.chatrooms),
                     NewState = St#client_st {chatrooms = NewRooms},
                     {reply, ok, NewState}
             catch
