@@ -43,7 +43,7 @@ handle(St, disconnect) ->
         St#client_st.server == "" -> 
             {reply, {error, user_not_connected, "Not connected to a server"}, St};
         %kolla så att chatrooms är tom, annars error.
-        St#client_st.chatrooms == [] ->
+        St#client_st.chatrooms /= [] ->
             {reply, {error, leave_channels_first, "Must leave all chatrooms before disconnect"}, St};
         true ->
             ServerAtom = list_to_atom(St#client_st.server),
