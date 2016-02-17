@@ -60,10 +60,11 @@ handle(St, disconnect) ->
 
 % Join channel
 handle(St, {join, Channel}) ->
+    B = lists:member(Channel, St#client_st.chatrooms),
     if
         %kolla om man redan är med i chattrummet, då error
-       list:member(Channel, St#client_st.chatrooms) ->
-            {reply, {error, user_already_joined, "Already in chatroom.", St}
+        B ->
+            {reply, {error, user_already_joined, "Already in chatroom."}, St};
         true ->
              %join chatroom
              ServerAtom = list_to_atom(St#client_st.server),
@@ -85,11 +86,12 @@ handle(St, {join, Channel}) ->
 
 %% Leave channel
 handle(St, {leave, Channel}) ->
+    B = lists:member(Channel, St#client_st.chatrooms),
     if 
-        not lists:member(Channel, St#client_st.chatrooms) ->
-            {reply, {error, user_not_joined, "You can't leave a channel you're not in."}, St}
+        not B ->
+            {reply, {error, user_not_joined, "You can't leave a channel you're not in."}, St};
         true -> 
-            ServerAtom = list_to_atom(St#client_st.chatrooms),
+            ServerAtom = list_to_atom(St#client_st.server),
             try genserver:request(ServerAtom, {leave, St#client_st.gui, Channel}) of
                 Response ->
                     NewRooms = lists:remove(Channel, St#client_st.chatrooms),
