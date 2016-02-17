@@ -65,8 +65,22 @@ handle(St, {join, Channel}) ->
 
 %% Leave channel
 handle(St, {leave, Channel}) ->
-    % {reply, ok, St} ;
-    {reply, {error, not_implemented, "Not implemented"}, St} ;
+    if 
+        not lists:member(Channel, St#client_st.chatrooms) ->
+            {reply, {error, user_not_joined, "You can't leave a channel you're not in."}, St}
+        true -> 
+            ServerAtom = list_to_atom(St#client_st.chatrooms),
+            try genserver:request(ServerAtom, {St#client_st.gui, Channel}) of
+                Response ->
+                    NewRooms = lists:remove(Channel, St#client_st.chatrooms),
+                    NewState = St#client_st {chatrooms = NewRooms},
+                    {reply, ok, NewState}
+            catch
+                _:_ -> {reply, {error, server_not_reached, "Server unavailible."}, St}
+            end
+    end;
+
+
 
 % Sending messages
 handle(St, {msg_from_GUI, Channel, Msg}) ->
