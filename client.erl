@@ -7,7 +7,7 @@
 
 %% Produce initial state
 initial_state(Nick, GUIName) ->
-    #client_st { gui = GUIName, server = "" }.
+    #client_st { gui = GUIName, server = "" , chatrooms = []}.
 
 %% ---------------------------------------------------------------------------
 
@@ -38,8 +38,25 @@ handle(St, {connect, Server}) ->
 
 %% Disconnect from server
 handle(St, disconnect) ->
-    % {reply, ok, St} ;
-    {reply, {error, not_implemented, "Not implemented"}, St} ;
+    if
+        %kolla så att man faktiskt är ansluten till en server
+        St#client_st.server == "" -> 
+            {reply, {error, user_not_connected, "Not connected to a server"}, St};
+        %kolla så att chatrooms är tom, annars error.
+        St#client_st.chatrooms == [] ->
+            {reply, {error, leave_channels_first, "Must leave all chatrooms before disconnect"}, St};
+        true ->
+            ServerAtom = list_to_atom(St#client_st.server),
+            try genserver:request(ServerAtom, St#client_st.gui) of
+                Response ->
+                    io:fwrite("Client disconnected: ~p~n", [Response]),
+                    NewState = St#client_st {server = ""},
+                    {reply, ok, NewState}
+            %Try-catch fel från servern.
+            catch
+                _:_ -> {reply, {error, server_not_reached, "Server unavailible."}, St}
+            end
+    end;
 
 % Join channel
 handle(St, {join, Channel}) ->
