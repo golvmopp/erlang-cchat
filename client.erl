@@ -62,7 +62,10 @@ handle(St, disconnect) ->
 handle(St, {join, Channel}) ->
     B = lists:member(Channel, St#client_st.chatrooms),
     if
-        %kolla om man redan är med i chattrummet, då error
+        %kolla så man är ansluten till en server.
+        St#client_st.server == "" ->
+            {reply, {error, user_not_connected, "Not connected to a server"}, St};
+        %kolla om man redan är med i chattrummet, då error.
         B ->
             {reply, {error, user_already_joined, "Already in chatroom."}, St};
         true ->
@@ -79,10 +82,11 @@ handle(St, {join, Channel}) ->
                 _:_ -> {reply, {error, server_not_reached, "Server unavailible."}, St}
             end
     end;
-            %kolla om chattrummet finns på servern, om nej, skapa chattrum
-        %not list:member(Channel, St#server_st.chatrooms) ->
-         %   OldChatrooms = St#server_st.chatrooms,
-          %  NewState = St#server_st {chatrooms = Channel:OldChatrooms},
+    %FÖR SERVERN SENARE:
+    %kolla om chattrummet finns på servern, om nej, skapa chattrum
+    %not list:member(Channel, St#server_st.chatrooms) ->
+    %   OldChatrooms = St#server_st.chatrooms,
+    %  NewState = St#server_st {chatrooms = Channel:OldChatrooms},
 
 %% Leave channel
 handle(St, {leave, Channel}) ->
