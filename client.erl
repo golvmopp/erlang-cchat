@@ -16,7 +16,7 @@ initial_state(Nick, GUIName) ->
 %% All requests are processed by handle/2 receiving the request data (and the
 %% current state), performing the needed actions, and returning a tuple
 %% {reply, Reply, NewState}, where Reply is the reply to be sent to the
-%% requesting process and NewState is the new state of the client.
+%% reqeumulsting process and NewState is the new state of the client.
 
 %% Connect to server
 handle(St, {connect, Server}) ->
@@ -25,7 +25,7 @@ handle(St, {connect, Server}) ->
             {reply, {error, user_already_connected, "Already connected."}, St};
         true ->
             ServerAtom = list_to_atom(Server),
-            try genserver:request(ServerAtom, St#client_st.gui) of
+            try genserver:request(ServerAtom, {connect, St#client_st.gui}) of
                 Response -> 
                     io:fwrite("Client received: ~p~n", [Response]),
                     NewState = St#client_st {server = Server},
@@ -47,7 +47,7 @@ handle(St, disconnect) ->
             {reply, {error, leave_channels_first, "Must leave all chatrooms before disconnect"}, St};
         true ->
             ServerAtom = list_to_atom(St#client_st.server),
-            try genserver:request(ServerAtom, St#client_st.gui) of
+            try genserver:request(ServerAtom, {disconnect, St#client_st.gui}) of
                 Response ->
                     io:fwrite("Client disconnected: ~p~n", [Response]),
                     NewState = St#client_st {server = ""},
@@ -70,7 +70,7 @@ handle(St, {leave, Channel}) ->
             {reply, {error, user_not_joined, "You can't leave a channel you're not in."}, St}
         true -> 
             ServerAtom = list_to_atom(St#client_st.chatrooms),
-            try genserver:request(ServerAtom, {St#client_st.gui, Channel}) of
+            try genserver:request(ServerAtom, {leave, St#client_st.gui, Channel}) of
                 Response ->
                     NewRooms = lists:remove(Channel, St#client_st.chatrooms),
                     NewState = St#client_st {chatrooms = NewRooms},
