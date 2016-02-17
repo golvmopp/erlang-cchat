@@ -28,7 +28,8 @@ handle(St, {connect, Server}) ->
             try genserver:request(ServerAtom, St#client_st.gui) of
                 Response -> 
                     io:fwrite("Client received: ~p~n", [Response]),
-                    {reply, ok, St}
+                    NewState = St#client_st {server = Server},
+                    {reply, ok, NewState}
             catch
                 _:_ -> {reply, {error, server_not_reached, "Server unavailible."}, St}
             end
