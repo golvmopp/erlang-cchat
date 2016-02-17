@@ -60,8 +60,28 @@ handle(St, disconnect) ->
 
 % Join channel
 handle(St, {join, Channel}) ->
-    % {reply, ok, St} ;
-    {reply, {error, not_implemented, "Not implemented"}, St} ;
+    if
+        %kolla om man redan är med i chattrummet, då error
+       list:member(Channel, St#client_st.chatrooms) ->
+            {reply, {error, user_already_joined, "Already in chatroom.", St}
+        true ->
+             %join chatroom
+             ServerAtom = list_to_atom(St#client_st.server),
+             try genserver:request(ServerAtom, {join, St#client_st.gui, Channel}) of
+                Response ->
+                    io:fwrite("Client joined channel: ~p~n", [Response]),
+                    OldChatrooms = St#client_st.chatrooms,
+                    NewState = St#client_st {chatrooms = [Channel|OldChatrooms]},
+                    {reply, ok, NewState}
+            catch 
+                %try catch fel från servern.
+                _:_ -> {reply, {error, server_not_reached, "Server unavailible."}, St}
+            end
+    end;
+            %kolla om chattrummet finns på servern, om nej, skapa chattrum
+        %not list:member(Channel, St#server_st.chatrooms) ->
+         %   OldChatrooms = St#server_st.chatrooms,
+          %  NewState = St#server_st {chatrooms = Channel:OldChatrooms},
 
 %% Leave channel
 handle(St, {leave, Channel}) ->
