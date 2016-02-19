@@ -7,7 +7,7 @@
 
 %% Produce initial state
 initial_state(Nick, GUIName) ->
-    #client_st { gui = GUIName, server = "" , chatrooms = [], nick = "nicklas"}.
+    #client_st { gui = GUIName, server = "" , chatrooms = [], nick = Nick}.
 
 %% ---------------------------------------------------------------------------
 
@@ -25,7 +25,7 @@ handle(St, {connect, Server}) ->
             {reply, {error, user_already_connected, "Already connected."}, St};
         true ->
             ServerAtom = list_to_atom(Server),
-            try genserver:request(ServerAtom, {connect, St#client_st.gui}) of
+            try genserver:request(ServerAtom, {connect, St#client_st.nick}) of
                 Response -> 
                     io:fwrite("Client received: ~p~n", [Response]),
                     NewState = St#client_st {server = Server},
@@ -97,7 +97,7 @@ handle(St, {leave, Channel}) ->
         true -> 
             ServerAtom = list_to_atom(St#client_st.server),
             try genserver:request(ServerAtom, {leave, St#client_st.gui, Channel}) of
-                Response ->
+                _ ->
                     NewRooms = lists:delete(Channel, St#client_st.chatrooms),
                     NewState = St#client_st {chatrooms = NewRooms},
                     {reply, ok, NewState}

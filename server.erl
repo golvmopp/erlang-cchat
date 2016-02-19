@@ -7,7 +7,7 @@
 
 % Produce initial state
 initial_state(ServerName) ->
-    #server_st{chatrooms = []}.
+    #server_st{name = ServerName, chatrooms = [], clients = []}.
 
 %% ---------------------------------------------------------------------------
 
@@ -18,8 +18,9 @@ initial_state(ServerName) ->
 %% {reply, Reply, NewState}, where Reply is the reply to be sent to the client
 %% and NewState is the new state of the server.
 
-handle(St, Request) ->
-    io:fwrite("Server received: ~p~n", [Request]),
-    Response = "hi!",
-    io:fwrite("Server is sending: ~p~n", [Response]),
-    {reply, Response, St}.
+handle(St, {connect, Nick}) ->
+    NewState = St#server_st {clients = [Nick|St#server_st.clients]},
+    {reply, "Connected" , NewState};
+
+handle(St, {disconnect, Nick}) -> 
+	{reply, Nick, St}.
