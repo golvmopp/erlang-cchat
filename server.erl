@@ -7,6 +7,10 @@
 
 % Produce initial state
 initial_state(ServerName) ->
+	% chatrooms on the form list of tuples with key "roomname" and list of 
+	% Pids of users in the chatroom.
+	% An element looks like this: {#hobbits, [pid1, pid2, pid4]}, dunno what a pid looks like.
+	% clients are just the pids on the server, regardless of chatroom
     #server_st{name = ServerName, chatrooms = [], clients = []}.
 
 %% ---------------------------------------------------------------------------
