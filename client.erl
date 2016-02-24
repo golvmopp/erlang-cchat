@@ -73,7 +73,8 @@ handle(St, {join, Channel}) ->
         true ->
              %join chatroom
              ServerAtom = list_to_atom(St#client_st.server),
-             try genserver:request(ServerAtom, {join, St#client_st.gui, Channel}) of
+             Pid = self(),
+             try genserver:request(ServerAtom, {join, Pid, Channel}) of
                 Response ->
                     io:fwrite("Client joined channel: ~p~n", [Response]),
                     OldChatrooms = St#client_st.chatrooms,

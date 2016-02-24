@@ -22,9 +22,9 @@ initial_state(ServerName) ->
 %% {reply, Reply, NewState}, where Reply is the reply to be sent to the client
 %% and NewState is the new state of the server.
 
-handle(St, {connect, Nick}) ->
-    NewState = St#server_st {clients = [Nick|St#server_st.clients]},
+handle(St, {connect, Pid}) ->
+    NewState = St#server_st {clients = [Pid|St#server_st.clients]},
     {reply, "Connected" , NewState};
 
-handle(St, {disconnect, Nick}) -> 
-	{reply, Nick, St}.
+handle(St, {disconnect, Pid}) -> 
+	{reply, Pid, St}.
