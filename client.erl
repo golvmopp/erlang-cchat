@@ -25,7 +25,8 @@ handle(St, {connect, Server}) ->
             {reply, {error, user_already_connected, "Already connected."}, St};
         true ->
             ServerAtom = list_to_atom(Server),
-            try genserver:request(ServerAtom, {connect, St#client_st.nick}) of
+            Pid = self(),
+            try genserver:request(ServerAtom, {connect, Pid}) of
                 Response -> 
                     io:fwrite("Client received: ~p~n", [Response]),
                     NewState = St#client_st {server = Server},
@@ -47,7 +48,8 @@ handle(St, disconnect) ->
             {reply, {error, leave_channels_first, "Must leave all chatrooms before disconnect"}, St};
         true ->
             ServerAtom = list_to_atom(St#client_st.server),
-            try genserver:request(ServerAtom, {disconnect, St#client_st.gui}) of
+            Pid = self(),
+            try genserver:request(ServerAtom, {disconnect, Pid}) of
                 Response ->
                     io:fwrite("Client disconnected: ~p~n", [Response]),
                     NewState = St#client_st {server = ""},
