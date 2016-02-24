@@ -85,11 +85,6 @@ handle(St, {join, Channel}) ->
                 _:_ -> {reply, {error, server_not_reached, "Server unavailible."}, St}
             end
     end;
-    %FÖR SERVERN SENARE:
-    %kolla om chattrummet finns på servern, om nej, skapa chattrum
-    %not list:member(Channel, St#server_st.chatrooms) ->
-    %   OldChatrooms = St#server_st.chatrooms,
-    %  NewState = St#server_st {chatrooms = Channel:OldChatrooms},
 
 %% Leave channel
 handle(St, {leave, Channel}) ->
@@ -99,7 +94,8 @@ handle(St, {leave, Channel}) ->
             {reply, {error, user_not_joined, "You can't leave a channel you're not in."}, St};
         true -> 
             ServerAtom = list_to_atom(St#client_st.server),
-            try genserver:request(ServerAtom, {leave, St#client_st.gui, Channel}) of
+            Pid = self(),
+            try genserver:request(ServerAtom, {leave, Pid, Channel}) of
                 _ ->
                     NewRooms = lists:delete(Channel, St#client_st.chatrooms),
                     NewState = St#client_st {chatrooms = NewRooms},

@@ -26,5 +26,27 @@ handle(St, {connect, Pid}) ->
     NewState = St#server_st {clients = [Pid|St#server_st.clients]},
     {reply, "Connected" , NewState};
 
-handle(St, {disconnect, Pid}) -> 
-	{reply, Pid, St}.
+handle(St, {disconnect, Nick}) ->
+	ClientsConnected = lists:delete(Nick, St#server_st.clients),
+	NewState = St#server_st {clients = ClientsConnected},
+	{reply, Nick, NewState};
+
+handle(St, {join, Pid, Channel}) ->
+	Chatroom = lists:keyfind(Channel, 1, St#server_st.chatrooms),
+	if (not Chatroom) ->
+		%create room
+		NewRoom = {Channel, [Pid]},
+		NewState = St#server_st {chatrooms = [NewRoom|St#server_st.chatrooms]},
+		{reply, ok, NewState}
+	true -> 
+		%add pid to channel.
+		{_,List} = Chatroom,
+		List = [Pid|List],
+		Chatroom = {Channel, List},
+		TempList = lists:keydelete(Channel, 1, St#server_st.chatrooms),
+		NewState = St#server_st {chatrooms = [Chatroom|TempList]},
+		{reply, ok, NewState}
+	end.
+
+%handle(St, {leave, Pid, Channel}) ->
+
