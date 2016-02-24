@@ -112,8 +112,19 @@ handle(St, {leave, Channel}) ->
 
 % Sending messages
 handle(St, {msg_from_GUI, Channel, Msg}) ->
-    % {reply, ok, St} ;
-    {reply, {error, not_implemented, "Not implemented"}, St} ;
+    B = lists:member(Channel, St#client_st.chatrooms),
+    if 
+        not B ->
+            {reply, {error, user_not_joined, "You can't write to a channel you're not in."}, St};
+        true -> 
+            ServerAtom = list_to_atom(St#client_st.server),
+            try genserver:request(ServerAtom, {message, St#client_st.nick, Channel, Msg}) of
+                _ ->
+                    {reply, ok, St}
+            catch
+                _:_ -> {reply, {error, server_not_reached, "Server unavailible."}, St}
+            end
+    end;
 
 %% Get current nick
 handle(St, whoami) ->
