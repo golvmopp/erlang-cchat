@@ -22,9 +22,14 @@ initial_state(ServerName) ->
 %% {reply, Reply, NewState}, where Reply is the reply to be sent to the client
 %% and NewState is the new state of the server.
 
-handle(St, {connect, Pid}) ->
-    NewState = St#server_st {clients = [Pid|St#server_st.clients]},
-    {reply, "Connected" , NewState};
+handle(St, {connect, Nick}) ->
+	B = lists:member(Nick, St#server_st.clients),
+	if not B -> 
+	    NewState = St#server_st {clients = [Nick|St#server_st.clients]},
+	    {reply, "Connected" , NewState};
+	true ->
+		{reply, "Failed", St}
+	end;
 
 handle(St, {disconnect, Nick}) ->
 	ClientsConnected = lists:delete(Nick, St#server_st.clients),
@@ -37,16 +42,26 @@ handle(St, {join, Pid, Channel}) ->
 		%create room
 		NewRoom = {Channel, [Pid]},
 		NewState = St#server_st {chatrooms = [NewRoom|St#server_st.chatrooms]},
-		{reply, ok, NewState}
+		{reply, ok, NewState};
 	true -> 
 		%add pid to channel.
 		{_,List} = Chatroom,
-		List = [Pid|List],
-		Chatroom = {Channel, List},
+		NewList = [Pid|List],
+		NewChatroom = {Channel, NewList},
 		TempList = lists:keydelete(Channel, 1, St#server_st.chatrooms),
-		NewState = St#server_st {chatrooms = [Chatroom|TempList]},
+		NewState = St#server_st {chatrooms = [NewChatroom|TempList]},
 		{reply, ok, NewState}
-	end.
+	end;
 
-%handle(St, {leave, Pid, Channel}) ->
+handle(St, {leave, Pid, Channel}) ->
+	{_,Members} = lists:keyfind(Channel, 1, St#server_st.chatrooms), % Get members in room
+	NewMembers = lists:delete(Pid, Members),                         % Delete Pid from list
+	TempChannels = lists:keydelete(Channel, 1, St#server_st.chatrooms), % Delete channel, then add it with new list
+	NewState = St#server_st {chatrooms = [{Channel, NewMembers}|TempChannels]},
+	{reply, ok, NewState};
 
+handle(St, {message, Nick, Channel, Msg, PI}) ->
+	{_,TheList} = lists:keyfind(Channel, 1, St#server_st.chatrooms),
+	ListOfPids = lists:delete(PI, TheList), % Can't send to yourself
+	[genserver:request(Pid, {incoming_msg, Channel, Nick, Msg}) || Pid <- ListOfPids],
+	{reply, ok, St}.

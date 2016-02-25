@@ -25,12 +25,12 @@ handle(St, {connect, Server}) ->
             {reply, {error, user_already_connected, "Already connected."}, St};
         true ->
             ServerAtom = list_to_atom(Server),
-            Pid = self(),
-            try genserver:request(ServerAtom, {connect, Pid}) of
-                Response -> 
-                    io:fwrite("Client received: ~p~n", [Response]),
+            try genserver:request(ServerAtom, {connect, St#client_st.nick}) of
+                "Connected" -> 
                     NewState = St#client_st {server = Server},
-                    {reply, ok, NewState}
+                    {reply, ok, NewState};
+                "Failed" -> 
+                    {reply, {error, user_already_connected, "Please change username"}, St}
             catch
                 _:_ -> {reply, {error, server_not_reached, "Server unavailible."}, St}
             end
@@ -48,12 +48,10 @@ handle(St, disconnect) ->
             {reply, {error, leave_channels_first, "Must leave all chatrooms before disconnect"}, St};
         true ->
             ServerAtom = list_to_atom(St#client_st.server),
-            Pid = self(),
-            try genserver:request(ServerAtom, {disconnect, Pid}) of
-                Response ->
-                    io:fwrite("Client disconnected: ~p~n", [Response]),
-                    NewState = St#client_st {server = ""},
-                    {reply, ok, NewState}
+            try genserver:request(ServerAtom, {disconnect, St#client_st.nick}) of
+                _ ->
+                    %NewState = St#client_st {server = ""},
+                    {reply, ok, St#client_st {server = ""}}
             %Try-catch fel från servern.
             catch
                 _:_ -> {reply, {error, server_not_reached, "Server unavailible."}, St}
@@ -75,14 +73,12 @@ handle(St, {join, Channel}) ->
              ServerAtom = list_to_atom(St#client_st.server),
              Pid = self(),
              try genserver:request(ServerAtom, {join, Pid, Channel}) of
-                Response ->
-                    io:fwrite("Client joined channel: ~p~n", [Response]),
-                    OldChatrooms = St#client_st.chatrooms,
-                    NewState = St#client_st {chatrooms = [Channel|OldChatrooms]},
+                _ ->
+                    NewState = St#client_st {chatrooms = [Channel|St#client_st.chatrooms]},
                     {reply, ok, NewState}
             catch 
                 %try catch fel från servern.
-                _:_ -> {reply, {error, server_not_reached, "Server unavailible."}, St}
+                _ -> {reply, {error, server_not_reached, "Server unavailible."}, St}
             end
     end;
 
@@ -101,7 +97,7 @@ handle(St, {leave, Channel}) ->
                     NewState = St#client_st {chatrooms = NewRooms},
                     {reply, ok, NewState}
             catch
-                _:_ -> {reply, {error, server_not_reached, "Server unavailible."}, St}
+                _ -> {reply, {error, server_not_reached, "Server unavailible."}, St}
             end
     end;
 
@@ -115,11 +111,12 @@ handle(St, {msg_from_GUI, Channel, Msg}) ->
             {reply, {error, user_not_joined, "You can't write to a channel you're not in."}, St};
         true -> 
             ServerAtom = list_to_atom(St#client_st.server),
-            try genserver:request(ServerAtom, {message, St#client_st.nick, Channel, Msg}) of
+            Pid = self(),
+            try genserver:request(ServerAtom, {message, St#client_st.nick, Channel, Msg, Pid}) of
                 _ ->
                     {reply, ok, St}
             catch
-                _:_ -> {reply, {error, server_not_reached, "Server unavailible."}, St}
+                _ -> {reply, {error, server_not_reached, "Server unavailible."}, St}
             end
     end;
 

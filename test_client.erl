@@ -783,7 +783,7 @@ process_usage_test_DISABLED() ->
 % and sends one message to a channel where all of the users are registered.
 many_users_one_channel(NumUsers) ->
     init("many_users_one_channel"),
-    ServerPid = whereis(?SERVERATOM),
+    %ServerPid = whereis(?SERVERATOM),
     Channel = new_channel(),
     ParentPid = self(),
     Ref = make_ref(),
@@ -950,7 +950,7 @@ many_users_many_channels(NumUsers) ->
     % The sleepy process will tell request every request to sleep for 100ms
     Sleepy = fun (FF) ->
       receive
-        {hi, ToPid, Pid} ->
+        {hi, ToPid, _} ->
           %io:format(user, "sleepy ~p ~p~n", [ToPid, Pid]),
           ToPid ! {wait, 50}, % ms
           FF(FF);
@@ -976,7 +976,7 @@ many_users_many_channels(NumUsers) ->
 
 many_users_one_channel_deadlock(NumUsers) ->
     init("many_users_one_channel_deadlock"),
-    ServerPid = whereis(?SERVERATOM),
+    %ServerPid = whereis(?SERVERATOM),
     Channel = new_channel(),
     ParentPid = self(),
     Ref = make_ref(),
@@ -1061,7 +1061,7 @@ many_users_one_channel_deadlock(NumUsers) ->
     [begin P ! go, receive {joined, Ref} -> ok end end || P <- Pids ],
     io:format(user, "all clients connected and joined the channel~n", []),
     [P ! go2 || P <- Pids ],
-    [receive {msgSent, Ref} -> ok end || P <- Pids ],
+    [receive {msgSent, Ref} -> ok end || _ <- Pids ],
     io:format(user, "clients disconnecting...~n", []),
     [begin P ! go3, receive {disconnected, Ref} -> ok end end || P <- Pids ],
     Times = lists:map(Recv, Seq),
