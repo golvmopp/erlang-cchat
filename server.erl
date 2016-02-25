@@ -7,9 +7,7 @@
 
 % Produce initial state
 initial_state(ServerName) ->
-	% chatrooms on the form list of tuples with key "roomname" and list of 
-	% Pids of users in the chatroom.
-	% An element looks like this: {#hobbits, [pid1, pid2, pid4]}, dunno what a pid looks like.
+	% Chatrooms is lists of Channel names
 	% clients are just the pids on the server, regardless of chatroom
     #server_st{name = ServerName, chatrooms = [], clients = []}.
 
@@ -37,31 +35,23 @@ handle(St, {disconnect, Nick}) ->
 	{reply, Nick, NewState};
 
 handle(St, {join, Pid, Channel}) ->
-	Chatroom = lists:keyfind(Channel, 1, St#server_st.chatrooms),
+	Chatroom = lists:member(Channel, St#server_st.chatrooms),
 	if (not Chatroom) ->
-		%create room
-		NewRoom = {Channel, [Pid]},
-		NewState = St#server_st {chatrooms = [NewRoom|St#server_st.chatrooms]},
+    	genserver:start(list_to_atom(Channel), channel:initial_state(Channel, Pid), fun channel:handle/2),
+		NewState = St#server_st {chatrooms = [Channel|St#server_st.chatrooms]},
 		{reply, ok, NewState};
 	true -> 
-		%add pid to channel.
-		{_,List} = Chatroom,
-		NewList = [Pid|List],
-		NewChatroom = {Channel, NewList},
-		TempList = lists:keydelete(Channel, 1, St#server_st.chatrooms),
-		NewState = St#server_st {chatrooms = [NewChatroom|TempList]},
-		{reply, ok, NewState}
+		C = list_to_atom(Channel),
+		genserver:request(C, {add, Pid}),
+		{reply, ok, St}
 	end;
 
 handle(St, {leave, Pid, Channel}) ->
-	{_,Members} = lists:keyfind(Channel, 1, St#server_st.chatrooms), % Get members in room
-	NewMembers = lists:delete(Pid, Members),                         % Delete Pid from list
-	TempChannels = lists:keydelete(Channel, 1, St#server_st.chatrooms), % Delete channel, then add it with new list
-	NewState = St#server_st {chatrooms = [{Channel, NewMembers}|TempChannels]},
-	{reply, ok, NewState};
+	C = list_to_atom(Channel),
+	genserver:request(C, {remove, Pid}),
+	{reply, ok, St};
 
-handle(St, {message, Nick, Channel, Msg, PI}) ->
-	{_,TheList} = lists:keyfind(Channel, 1, St#server_st.chatrooms),
-	ListOfPids = lists:delete(PI, TheList), % Can't send to yourself
-	[genserver:request(Pid, {incoming_msg, Channel, Nick, Msg}) || Pid <- ListOfPids],
+handle(St, {message, Nick, Channel, Msg, Pid}) ->
+	C = list_to_atom(Channel),
+	genserver:request(C, {message, Nick, Msg, Pid}),
 	{reply, ok, St}.
