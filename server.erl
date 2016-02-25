@@ -44,14 +44,4 @@ handle(St, {join, Pid, Channel}) ->
 		C = list_to_atom(Channel),
 		genserver:request(C, {add, Pid}),
 		{reply, ok, St}
-	end;
-
-handle(St, {leave, Pid, Channel}) ->
-	C = list_to_atom(Channel),
-	genserver:request(C, {remove, Pid}),
-	{reply, ok, St};
-
-handle(St, {message, Nick, Channel, Msg, Pid}) ->
-	C = list_to_atom(Channel),
-	genserver:request(C, {message, Nick, Msg, Pid}),
-	{reply, ok, St}.
+	end.

@@ -20,5 +20,6 @@ handle(St, {remove, Pid}) ->
 
 handle(St, {message, Nick, Msg, Pid}) ->
 	ListOfPids = lists:delete(Pid, St#channel_st.clients), % Can't send to yourself
+	% Spawn process for each message back
 	[spawn(fun() -> genserver:request(P, {incoming_msg, St#channel_st.name, Nick, Msg}) end) || P <- ListOfPids],
 	{reply, ok, St}. 

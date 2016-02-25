@@ -89,9 +89,9 @@ handle(St, {leave, Channel}) ->
         not B ->
             {reply, {error, user_not_joined, "You can't leave a channel you're not in."}, St};
         true -> 
-            ServerAtom = list_to_atom(St#client_st.server),
+            ChannelAtom = list_to_atom(Channel),
             Pid = self(),
-            try genserver:request(ServerAtom, {leave, Pid, Channel}) of
+            try genserver:request(ChannelAtom, {remove, Pid}) of
                 _ ->
                     NewRooms = lists:delete(Channel, St#client_st.chatrooms),
                     NewState = St#client_st {chatrooms = NewRooms},
@@ -105,18 +105,20 @@ handle(St, {leave, Channel}) ->
 
 % Sending messages
 handle(St, {msg_from_GUI, Channel, Msg}) ->
+    % B = true if user is in channel
     B = lists:member(Channel, St#client_st.chatrooms),
     if 
         not B ->
             {reply, {error, user_not_joined, "You can't write to a channel you're not in."}, St};
         true -> 
-            ServerAtom = list_to_atom(St#client_st.server),
+            ChannelAtom = list_to_atom(Channel),
             Pid = self(),
-            try genserver:request(ServerAtom, {message, St#client_st.nick, Channel, Msg, Pid}) of
+            % Spawn process for each message sent
+            try spawn(fun() -> genserver:request(ChannelAtom, {message, St#client_st.nick, Msg, Pid}) end) of
                 _ ->
                     {reply, ok, St}
             catch
-                _ -> {reply, {error, server_not_reached, "Server unavailible."}, St}
+                _ -> {reply, {error, server_not_reached, "Channel/server unavailible."}, St}
             end
     end;
 
