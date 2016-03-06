@@ -8,8 +8,8 @@
 % Produce initial state
 initial_state(ServerName) ->
 	% Chatrooms is lists of Channel names
-	% clients are just the pids on the server, regardless of chatroom
-    #server_st{name = ServerName, chatrooms = [], clients = []}.
+	% clients are just the nicks on the server, regardless of chatroom
+    #server_st{name = ServerName, chatrooms = [], clientnicks = [], clientpids = []}.
 
 %% ---------------------------------------------------------------------------
 
@@ -20,10 +20,11 @@ initial_state(ServerName) ->
 %% {reply, Reply, NewState}, where Reply is the reply to be sent to the client
 %% and NewState is the new state of the server.
 
-handle(St, {connect, Nick}) ->
-	OnServer = lists:member(Nick, St#server_st.clients),
+handle(St, {connect, Nick, Pid}) ->
+	OnServer = lists:member(Nick, St#server_st.clientnicks),
 	if not OnServer -> 
-	    NewState = St#server_st {clients = [Nick|St#server_st.clients]},
+	    NewState = St#server_st {clientnicks = [Nick|St#server_st.clientnicks], 
+	    						 clientpids  = [Pid|St#server_st.clientpids]},
 	    {reply, "Connected" , NewState};
 	true ->
 		{reply, "Failed", St}
@@ -31,8 +32,8 @@ handle(St, {connect, Nick}) ->
 
 handle(St, {disconnect, Nick}) ->
 	% Client can only send disconnect request if it's connected
-	ClientsConnected = lists:delete(Nick, St#server_st.clients),
-	NewState = St#server_st {clients = ClientsConnected},
+	ClientsConnected = lists:delete(Nick, St#server_st.clientnicks),
+	NewState = St#server_st {clientnicks = ClientsConnected},
 	{reply, ok, NewState};
 
 handle(St, {join, Pid, Channel}) ->
@@ -47,4 +48,15 @@ handle(St, {join, Pid, Channel}) ->
 		C = list_to_atom(Channel),
 		genserver:request(C, {add, Pid}),
 		{reply, ok, St}
-	end.
+	end;
+
+handle(St, {work, Fun, Inputs}) -> 
+	Assignments = assign_tasks(St#server_st.clientpids, Inputs),
+	Result = [genserver:request(C, {work, Fun, I},infinity) || {C,I} <- Assignments],
+	{reply, Result, St}.
+
+
+assign_tasks([], _) -> [] ;
+assign_tasks(Users, Tasks) ->
+  [  {lists:nth(((N-1) rem length(Users)) + 1, Users), Task}
+  || {N,Task} <- lists:zip(lists:seq(1,length(Tasks)), Tasks) ].

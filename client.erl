@@ -25,14 +25,15 @@ handle(St, {connect, Server}) ->
             {reply, {error, user_already_connected, "Already connected."}, St};
         true ->
             ServerAtom = list_to_atom(Server),
-            try genserver:request(ServerAtom, {connect, St#client_st.nick}) of
+            Pid = self(),
+            try genserver:request(ServerAtom, {connect, St#client_st.nick, Pid}) of
                 "Connected" -> 
                     NewState = St#client_st {server = Server},
                     {reply, ok, NewState};
                 "Failed" -> 
-                    {reply, {error, user_already_connected, "Please change username"}, St}
+                    {reply, {error, nick_taken, "Please change username"}, St}
             catch
-                _:_ -> {reply, {error, server_not_reached, "Server unavailible."}, St}
+                _:_ -> {reply, {error, server_not_reached, "Server unavailible on connect."}, St}
             end
     end;
     
@@ -50,7 +51,7 @@ handle(St, disconnect) ->
                 _ ->
                     {reply, ok, St#client_st {server = ""}}
             catch
-                _:_ -> {reply, {error, server_not_reached, "Server unavailible."}, St}
+                _:_ -> {reply, {error, server_not_reached, "Server unavailible on disconnect."}, St}
             end
     end;
 
@@ -72,7 +73,7 @@ handle(St, {join, Channel}) ->
                     NewState = St#client_st {chatrooms = [Channel|St#client_st.chatrooms]},
                     {reply, ok, NewState}
             catch 
-                _ -> {reply, {error, server_not_reached, "Server unavailible."}, St}
+                _ -> {reply, {error, server_not_reached, "Server unavailible on channel join."}, St}
             end
     end;
 
@@ -93,7 +94,7 @@ handle(St, {leave, Channel}) ->
                     NewState = St#client_st {chatrooms = NewRooms},
                     {reply, ok, NewState}
             catch
-                _ -> {reply, {error, server_not_reached, "Server unavailible."}, St}
+                _ -> {reply, {error, server_not_reached, "Server unavailible on channel leave."}, St}
             end
     end;
 
@@ -114,7 +115,7 @@ handle(St, {msg_from_GUI, Channel, Msg}) ->
                 _ ->
                     {reply, ok, St}
             catch
-                _ -> {reply, {error, server_not_reached, "Channel/server unavailible."}, St}
+                _ -> {reply, {error, server_not_reached, "Channel/server unavailible on send msg."}, St}
             end
     end;
 
@@ -135,4 +136,20 @@ handle(St, {nick, Nick}) ->
 %% Incoming message (not changed)
 handle(St = #client_st { gui = GUIName }, {incoming_msg, Channel, Name, Msg}) ->
     gen_server:call(list_to_atom(GUIName), {msg_to_GUI, Channel, Name++"> "++Msg}),
-    {reply, ok, St}.
+    {reply, ok, St};
+
+handle(St, {work, Fun, Input}) ->
+    Result = Fun(Input),
+    {ok,Result,St}.
+    
+    %Pid = self(),
+    %Proc = spawn_link(fun() -> Pid ! {self(), Fun(Input)} end),
+    %receive 
+    %    {Proc, Result} -> 
+    %        {reply, Result, St}
+    %end.
+
+    % Self = self(),
+%    Pids = [ spawn_link(fun() -> Self ! {self(), {X, fact(X)}} end)
+%            || X <- lists:seq(1, N) ],
+%    [ receive {Pid, R} -> R end || Pid <- Pids ].

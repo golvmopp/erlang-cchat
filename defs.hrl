@@ -9,7 +9,7 @@
 % This record defines the structure of the server process.
 % name = name of the server, chatrooms = list of names of started channels
 % clients = list of names of clients connected
--record(server_st, {name, chatrooms, clients}).
+-record(server_st, {name, chatrooms, clientnicks, clientpids}).
 
 % Defines the structure of a channel process
 % name = name of channel, clients = list of Pids of clients in channel
