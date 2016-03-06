@@ -40,19 +40,15 @@ handle(St, {connect, Server}) ->
 %% Disconnect from server
 handle(St, disconnect) ->
     if
-        %kolla så att man faktiskt är ansluten till en server
         St#client_st.server == "" -> 
             {reply, {error, user_not_connected, "Not connected to a server"}, St};
-        %kolla så att chatrooms är tom, annars error.
         St#client_st.chatrooms /= [] ->
             {reply, {error, leave_channels_first, "Must leave all chatrooms before disconnect"}, St};
         true ->
             ServerAtom = list_to_atom(St#client_st.server),
             try genserver:request(ServerAtom, {disconnect, St#client_st.nick}) of
                 _ ->
-                    %NewState = St#client_st {server = ""},
                     {reply, ok, St#client_st {server = ""}}
-            %Try-catch fel från servern.
             catch
                 _:_ -> {reply, {error, server_not_reached, "Server unavailible."}, St}
             end
@@ -60,39 +56,39 @@ handle(St, disconnect) ->
 
 % Join channel
 handle(St, {join, Channel}) ->
-    B = lists:member(Channel, St#client_st.chatrooms),
+    InChannel = lists:member(Channel, St#client_st.chatrooms),
     if
-        %kolla så man är ansluten till en server.
         St#client_st.server == "" ->
             {reply, {error, user_not_connected, "Not connected to a server"}, St};
-        %kolla om man redan är med i chattrummet, då error.
-        B ->
-            {reply, {error, user_already_joined, "Already in chatroom."}, St};
+        InChannel ->
+            {reply, {error, user_already_joined, "Already in the chatroom."}, St};
         true ->
              %join chatroom
              ServerAtom = list_to_atom(St#client_st.server),
              Pid = self(),
              try genserver:request(ServerAtom, {join, Pid, Channel}) of
                 _ ->
+                    % Add Channel to list of channels joined
                     NewState = St#client_st {chatrooms = [Channel|St#client_st.chatrooms]},
                     {reply, ok, NewState}
             catch 
-                %try catch fel från servern.
                 _ -> {reply, {error, server_not_reached, "Server unavailible."}, St}
             end
     end;
 
 %% Leave channel
 handle(St, {leave, Channel}) ->
-    B = lists:member(Channel, St#client_st.chatrooms),
+    InChannel = lists:member(Channel, St#client_st.chatrooms),
     if 
-        not B ->
+        not InChannel ->
             {reply, {error, user_not_joined, "You can't leave a channel you're not in."}, St};
         true -> 
             ChannelAtom = list_to_atom(Channel),
             Pid = self(),
+            % Requesting directly to channel, to avoid server bottleneck
             try genserver:request(ChannelAtom, {remove, Pid}) of
                 _ ->
+                    % Remove the channel from channels joined
                     NewRooms = lists:delete(Channel, St#client_st.chatrooms),
                     NewState = St#client_st {chatrooms = NewRooms},
                     {reply, ok, NewState}
@@ -105,15 +101,15 @@ handle(St, {leave, Channel}) ->
 
 % Sending messages
 handle(St, {msg_from_GUI, Channel, Msg}) ->
-    % B = true if user is in channel
-    B = lists:member(Channel, St#client_st.chatrooms),
+    InChannel = lists:member(Channel, St#client_st.chatrooms),
     if 
-        not B ->
+        not InChannel ->
             {reply, {error, user_not_joined, "You can't write to a channel you're not in."}, St};
         true -> 
             ChannelAtom = list_to_atom(Channel),
             Pid = self(),
-            % Spawn process for each message sent
+            % Requesting directly to channel, to avoid server bottleneck
+            % Spawning a process for each message sent
             try spawn(fun() -> genserver:request(ChannelAtom, {message, St#client_st.nick, Msg, Pid}) end) of
                 _ ->
                     {reply, ok, St}
@@ -124,12 +120,10 @@ handle(St, {msg_from_GUI, Channel, Msg}) ->
 
 %% Get current nick
 handle(St, whoami) ->
-    % {reply, "nick", St} ;
     {reply, St#client_st.nick, St} ;
 
 %% Change nick
 handle(St, {nick, Nick}) ->
-    % {reply, ok, St} ;
     if
         St#client_st.server == "" ->
             NewState = St#client_st {nick = Nick},
@@ -138,7 +132,7 @@ handle(St, {nick, Nick}) ->
             {reply, {error, user_already_connected, "Can't change nick while connected."}, St}
     end;
 
-%% Incoming message
+%% Incoming message (not changed)
 handle(St = #client_st { gui = GUIName }, {incoming_msg, Channel, Name, Msg}) ->
     gen_server:call(list_to_atom(GUIName), {msg_to_GUI, Channel, Name++"> "++Msg}),
     {reply, ok, St}.

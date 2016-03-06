@@ -21,8 +21,8 @@ initial_state(ServerName) ->
 %% and NewState is the new state of the server.
 
 handle(St, {connect, Nick}) ->
-	B = lists:member(Nick, St#server_st.clients),
-	if not B -> 
+	OnServer = lists:member(Nick, St#server_st.clients),
+	if not OnServer -> 
 	    NewState = St#server_st {clients = [Nick|St#server_st.clients]},
 	    {reply, "Connected" , NewState};
 	true ->
@@ -30,17 +30,20 @@ handle(St, {connect, Nick}) ->
 	end;
 
 handle(St, {disconnect, Nick}) ->
+	% Client can only send disconnect request if it's connected
 	ClientsConnected = lists:delete(Nick, St#server_st.clients),
 	NewState = St#server_st {clients = ClientsConnected},
-	{reply, Nick, NewState};
+	{reply, ok, NewState};
 
 handle(St, {join, Pid, Channel}) ->
-	Chatroom = lists:member(Channel, St#server_st.chatrooms),
-	if (not Chatroom) ->
+	ChannelExists = lists:member(Channel, St#server_st.chatrooms),
+	if (not ChannelExists) ->
+		% Start a process with genserver, running the channel.
     	genserver:start(list_to_atom(Channel), channel:initial_state(Channel, Pid), fun channel:handle/2),
 		NewState = St#server_st {chatrooms = [Channel|St#server_st.chatrooms]},
 		{reply, ok, NewState};
 	true -> 
+		% If it exists, just add the client to the running channel
 		C = list_to_atom(Channel),
 		genserver:request(C, {add, Pid}),
 		{reply, ok, St}
