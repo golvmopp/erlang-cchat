@@ -140,8 +140,9 @@ handle(St = #client_st { gui = GUIName }, {incoming_msg, Channel, Name, Msg}) ->
 
 handle(St, {work, Fun, Input}) ->
     Result = Fun(Input),
-    {ok,Result,St}.
-    
+    {reply,Result,St}.
+
+    %% below doesn't seem to be faster than the above..
     %Pid = self(),
     %Proc = spawn_link(fun() -> Pid ! {self(), Fun(Input)} end),
     %receive 
